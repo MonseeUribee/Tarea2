@@ -1,0 +1,114 @@
+<!--                   Tarea 1.2      
+                   El Fractal de sierpinski
+       
+       Equipo:
+       Cámara Gamboa Valeria Itzel
+       Uribe Chávez Montserrat del Carmen
+-->
+<!doctype html>
+<html>
+  <body>
+
+    <canvas width="570" height="570" id="my_Canvas"></canvas>
+
+    <script>
+     
+      var canvas = document.getElementById('my_Canvas');
+      var gl = canvas.getContext('experimental-webgl');
+
+      / ====== Shaders ====== /
+      // Shader de VÉRTICES: recibe coordenadas (x,y) y las pasa al pipeline gráfico
+      var vertCode = `
+        attribute vec2 coordinates;
+        void main(void) {
+          gl_Position = vec4(coordinates, 0.0, 1.0); // posición del vértice en pantalla
+        }`;
+
+      // Shader de FRAGMENTOS: define el color del triángulo base
+      var fragCode = `
+        void main(void) {
+          gl_FragColor = vec4(0.5, 0.0, 0.5, 1.0);  // morado con opacidad 100%
+        }`;
+
+      // Vertex shader
+      var vertShader = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vertShader, vertCode);
+      gl.compileShader(vertShader);
+
+      // Fragment shader
+      var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fragShader, fragCode);
+      gl.compileShader(fragShader);
+
+      // Se crea un programa de shaders y se conectan ambos
+      var shaderProgram = gl.createProgram();
+      gl.attachShader(shaderProgram, vertShader);
+      gl.attachShader(shaderProgram, fragShader);
+      gl.linkProgram(shaderProgram);  // enlaza los shaders al programa
+      gl.useProgram(shaderProgram);   // activa el programa en WebGL
+
+      // Se obtiene la ubicación del atributo "coordinates" en el shader
+      var coord = gl.getAttribLocation(shaderProgram, "coordinates");
+
+      / ====== Función recursiva para Sierpinski ======/
+      function sierpinski(a, b, c, cont, vertices) {
+        if (cont === 0) {
+          // Si no hay más subdivisión: guarda el triángulo actual
+          vertices.push(...a, ...b, ...c);
+        } else {
+          // Calcula los puntos medios de cada lado
+          var ab = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+          var bc = [(b[0] + c[0]) / 2, (b[1] + c[1]) / 2];
+          var ca = [(c[0] + a[0]) / 2, (c[1] + a[1]) / 2];
+
+          // Llama recursivamente a la función en los 3 subtriángulos
+          sierpinski(a, ab, ca, cont - 1, vertices);
+          sierpinski(ab, b, bc, cont - 1, vertices);
+          sierpinski(ca, bc, c, cont - 1, vertices);
+        }
+      }
+
+      / ====== Triángulo base  ======/
+      var A = [0, 0.8];     // vértice superior
+      var B = [-0.8, -0.8]; // vértice inferior izquierdo
+      var C = [0.8, -0.8];  // vértice inferior derecho
+
+      var cont = 0;     // Contador, nivel inicial de recursión
+      var dividir = 4;  // Máxima profundidad de subdivisión
+
+      / ====== Función para dibujar ======/
+      function draw(cont) {
+        var vertices = [];                // arreglo vacío para guardar puntos
+        sierpinski(A, B, C, cont, vertices); // genera los triángulos recursivos
+
+        // Crear buffer en la GPU y mandar los vértices
+        var vertex_buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+        // Enlaza buffer con atributo "coordinates" del shader
+        gl.vertexAttribPointer(coord, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(coord);
+
+        // Limpia pantalla 
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.viewport(0, 0, canvas.width, canvas.height); 
+
+        // Dibuja los triángulos (vertices.length / 2 porque son (x,y))
+        gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 2);
+      }
+
+      / ====== Animación paso a paso ======/
+      function animate() {
+        if (cont <= dividir) {
+          draw(cont);        // dibuja con la profundidad actual
+          cont++;            // aumenta el nivel
+          setTimeout(animate, 1000); // espera 1 segundo y repite
+        }
+      }
+
+      // Inicia la animación
+      animate();
+    </script>
+  </body>
+</html>
